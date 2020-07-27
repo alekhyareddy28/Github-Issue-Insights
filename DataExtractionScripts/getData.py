@@ -15,5 +15,7 @@ with open(filename, 'wb') as f:
     f.write(r.content)
 handle = gzip.open(filename)
 with open(file_Dataset_Unzipped, 'w') as out:
+    out.write('[')
     for line in handle:
-        out.write(line)
+        out.write(line + ',')
+    out.write(']')
