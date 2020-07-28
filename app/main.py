@@ -58,6 +58,12 @@ def bot():
     username, repo = request.json['repository']['full_name'].split('/')
     title = request.json['issue']['title']
     body = request.json['issue']['body']
+    labels = request.json['issue']['labels']
+
+    # Labels_list contains the list of labels
+    labels_list = []
+    for label in labels:
+        labels_list.append(label['name'])
 
     # don't do anything if repo is private.
     if private:
@@ -81,7 +87,7 @@ def bot():
 
     # get the most confident prediction
     issue.add_labels("test-label")
-    message = "testing working"
+    message = str(labels_list)
     # Make a comment using the GitHub api
     comment = issue.create_comment(message)
 
