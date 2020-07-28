@@ -12,10 +12,13 @@ from mlapp import GitHubApp
 
 app = Flask(__name__)
 
+path_to_private_key = "issue-insights.2020-07-27.private-key.pem"
+app_id=74516
+webhook_secret="TestGithubInsights20Van"
+
 def get_jwt(app_id):
 
     # TODO: read is as an environment variable
-    path_to_private_key = os.getenv("PEM_FILE_PATH")
     pem_file = open(path_to_private_key, "rt").read()
 
     payload = {
@@ -41,7 +44,7 @@ def bot():
     logging.debug("Handling request with action: %s",
                   request.json.get('action', 'None'))
     # authenticate webhook to make sure it is from GitHub
-    verify_webhook(request)
+    # verify_webhook(request)
 
     # Check if payload corresponds to an issue being opened
     if 'issue' not in request.json:
@@ -86,10 +89,10 @@ def bot():
 
 def get_app():
     "grab a fresh instance of the app handle."
-    app_id = os.getenv("GH_APP_ID")
+
     if not app_id:
         raise ValueError("APP_ID environment variable must be set.")
-    key_file_path = os.getenv("PEM_FILE_PATH")
+    key_file_path = path_to_private_key
     if not key_file_path:
         raise ValueError("GITHUB_APP_PEM_KEY environment variable must be set.")
     ghapp = GitHubApp(pem_path=key_file_path, app_id=app_id)
@@ -138,8 +141,8 @@ async def get_installation_access_token(gh, jwt, installation_id):
 def verify_webhook(request):
     "Make sure request is from GitHub.com"
     
-    webhook_secret = os.getenv('WEBHOOK_SECRET')
     # if we are testing, don't bother checking the payload
+
     if os.getenv('DEVELOPMENT_FLAG'): return True
     SIGNATURE_HEADER = 'X-Hub-Signature'
     # Inspired by https://github.com/bradshjg/flask-githubapp/blob/master/flask_githubapp/core.py#L191-L198
@@ -148,6 +151,7 @@ def verify_webhook(request):
 
     signature = request.headers[SIGNATURE_HEADER].split('=')[1]
 
+    logging.warning(webhook_secret)
     mac = hmac.new(str.encode(webhook_secret), msg=request.data, digestmod='sha1')
 
     if not hmac.compare_digest(mac.hexdigest(), signature):
@@ -159,6 +163,3 @@ if __name__ == "__main__":
     app.jinja_env.auto_reload = True
     app.config['TEMPLATES_AUTO_RELOAD'] = True
     app.run(debug=True, host='127.0.0.1', port=3000)
-
-
-
