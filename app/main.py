@@ -82,6 +82,8 @@ def bot():
     # Make a comment using the GitHub api
     comment = issue.create_comment(message)
 
+    pull_requests = get_pull_requests(installation_id, username, repo)
+
     return 'ok'
 
 def get_app():
@@ -100,6 +102,26 @@ def get_issue_handle(installation_id, username, repository, number):
     ghapp = get_app()
     install = ghapp.get_installation(installation_id)
     return install.issue(username, repository, number)
+
+    
+def get_pull_requests(installation_id, username, repository):
+    "get an issue object."
+    ghapp = get_app()
+    install = ghapp.get_installation(installation_id)
+    pull_requests = install.repository(username, repository).pull_requests()
+    for pr in  pull_requests:
+        logging.warning(f"Pull Request #{pr.number} Info:")
+        logging.warning("Title:" + pr.title)
+        logging.warning("Author: " + pr.user.login)
+        logging.warning("Url: " + pr.url)
+        logging.warning("Issue url:" + pr.issue_url)
+        files = pr.files()
+        
+        #maybe process the files to sort by add count and only output first 3?
+        for f in files:
+            logging.warning("PR has changes in file: " + f.filename)
+           
+    return pull_requests
 
 async def get_installation(gh, jwt, username):
     async for installation in gh.getiter(
