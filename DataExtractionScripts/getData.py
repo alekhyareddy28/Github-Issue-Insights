@@ -18,4 +18,4 @@ with open(file_Dataset_Unzipped, 'w') as out:
     out.write('[')
     for line in handle:
         out.write(line + ',')
-    out.write(']')
+    out.write('{}]')
