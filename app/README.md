@@ -4,8 +4,7 @@
 When the command line script is run, the GitHub App will start listening to events. When an issue is created the app will post a comment with info related to the issue.
 
 
-# GitHub App Creation
-===================
+## GitHub App Creation
 
 1. Create a GitHub App (https://github.com/settings/apps/new)
 
@@ -18,8 +17,7 @@ When the command line script is run, the GitHub App will start listening to even
 4. Generate a private key for the app. (https://developer.github.com/apps/building-github-apps/authenticating-with-github-apps/#generating-a-private-key)
 
 
-# Local environment setup
-=======================
+## Local environment setup
 
 1. Install the dependencies, preferably using a virtual environment. For example::
    ```
