@@ -1,0 +1,155 @@
+import asyncio
+import os
+import time
+import logging
+import hmac
+import aiohttp
+import jwt
+from gidgethub.aiohttp import GitHubAPI
+from flask import (abort, Flask, session, render_template,
+                   session, redirect, url_for, request,
+                   flash, jsonify)
+
+app = Flask(__name__)
+
+def get_jwt(app_id):
+
+    # TODO: read is as an environment variable
+    path_to_private_key = os.getenv("PEM_FILE_PATH")
+    pem_file = open(path_to_private_key, "rt").read()
+
+    payload = {
+        "iat": int(time.time()),
+        "exp": int(time.time()) + (10 * 60),
+        "iss": app_id,
+    }
+    encoded = jwt.encode(payload, pem_file, algorithm="RS256")
+    bearer_token = encoded.decode("utf-8")
+
+    return bearer_token
+
+@app.route("/event_handler", methods=["POST"])
+def bot():
+    "Handle payload"
+
+    logging.debug("Request Data:\n%s", request.data)
+    if not request.json:
+        logging.error("Request is not a json request. Please fix.")
+        # TODO(jlewi): What is the proper code invalid request?
+        abort(400)
+
+    logging.debug("Handling request with action: %s",
+                  request.json.get('action', 'None'))
+    # authenticate webhook to make sure it is from GitHub
+    verify_webhook(request)
+
+    # Check if payload corresponds to an issue being opened
+    if 'issue' not in request.json:
+        logging.warning("Event is not for an issue with action opened.")
+        return 'ok'
+
+    # get metadata
+    installation_id = request.json['installation']['id']
+    issue_num = request.json['issue']['number']
+    private = request.json['repository']['private']
+    username, repo = request.json['repository']['full_name'].split('/')
+    title = request.json['issue']['title']
+    body = request.json['issue']['body']
+
+    # don't do anything if repo is private.
+    if private:
+        logging.info(f"Recieved a private issue which is being skipped")
+        return 'ok'
+    asyncio.run(postIssue())
+    logging.info(f"Recieved {username}/{repo}#{issue_num}")
+    return 'ok'
+
+async def postIssue():
+    async with aiohttp.ClientSession() as session:
+        app_id = os.getenv("GH_APP_ID")
+
+        jwt = get_jwt(app_id)
+        gh = GitHubAPI(session, "chithams")
+
+        try:
+            installation = await get_installation(gh, jwt, "chithams")
+
+        except ValueError as ve:
+            # Raised if Mariatta did not installed the GitHub App
+            print(ve)
+        else:
+            access_token = await get_installation_access_token(
+                gh, jwt=jwt, installation_id=installation["id"]
+            )
+
+            # treat access_token as if a personal access token
+
+            # Example, creating a GitHub issue as a GitHub App
+            gh_app = GitHubAPI(session, "black_out", oauth_token=access_token["token"])
+            await gh_app.post(
+                "/repos/chithams/dummyrepo/issues",
+                data={
+                    "title": "We got a problem 🤖",
+                    "body": "Use more emoji! (I'm a GitHub App!) ",
+                },
+            )
+
+async def get_installation(gh, jwt, username):
+    async for installation in gh.getiter(
+        "/app/installations",
+        jwt=jwt,
+        accept="application/vnd.github.machine-man-preview+json",
+    ):
+        if installation["account"]["login"] == username:
+            return installation
+
+    raise ValueError(f"Can't find installation by that user: {username}")
+
+
+async def get_installation_access_token(gh, jwt, installation_id):
+    # doc: https: // developer.github.com/v3/apps/#create-a-new-installation-token
+
+    access_token_url = (
+        f"https://api.github.com/app/installations/{installation_id}/access_tokens"
+    )
+    response = await gh.post(
+        access_token_url,
+        data=b"",
+        jwt=jwt,
+        accept="application/vnd.github.machine-man-preview+json",
+    )
+    # example response
+    # {
+    #   "token": "v1.1f699f1069f60xxx",
+    #   "expires_at": "2016-07-11T22:14:10Z"
+    # }
+
+    return response
+SIGNATURE_HEADER = 'X-Hub-Signature'
+def verify_webhook(request):
+    "Make sure request is from GitHub.com"
+
+    webhook_secret = os.getenv('WEBHOOK_SECRET')
+    # if we are testing, don't bother checking the payload
+    if os.getenv('DEVELOPMENT_FLAG'): return True
+
+    # Inspired by https://github.com/bradshjg/flask-githubapp/blob/master/flask_githubapp/core.py#L191-L198
+    if SIGNATURE_HEADER not in request.headers:
+        logging.error("Request is missing header %s", SIGNATURE_HEADER)
+
+    signature = request.headers[SIGNATURE_HEADER].split('=')[1]
+
+    mac = hmac.new(str.encode(webhook_secret), msg=request.data, digestmod='sha1')
+
+    if not hmac.compare_digest(mac.hexdigest(), signature):
+        LOG.warning('GitHub hook signature verification failed.')
+        abort(400)
+
+if __name__ == "__main__":
+   
+    app.jinja_env.auto_reload = True
+    app.config['TEMPLATES_AUTO_RELOAD'] = True
+    app.run(debug=True, host='127.0.0.1', port=3000)
+
+
+
