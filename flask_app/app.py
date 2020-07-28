@@ -37,7 +37,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db.init_app(app)
 
 # Additional Setup inspired by https://github.com/bradshjg/flask-githubapp/blob/master/flask_githubapp/core.py
-app.webhook_secret = os.getenv('WEBHOOK_SECRET')
+app.webhook_secret = "TestGithubInsights20Van"
 LOG = logging.getLogger(__name__)
 
 # set the prediction threshold for everything except for the label question which has a different threshold
@@ -45,13 +45,13 @@ prediction_threshold = defaultdict(lambda: .52)
 prediction_threshold['question'] = .60
 
 # set the project id and topic name for GCP pubsub
-PUBSUB_PROJECT_ID = os.environ['GCP_PROJECT_ID']
-PUBSUB_TOPIC_NAME = os.environ['GCP_PUBSUB_TOPIC_NAME']
+PUBSUB_PROJECT_ID = ''
+PUBSUB_TOPIC_NAME = ''
 
 # get repos that should possibly be forwarded
 # dict: {repo_owner/repo_name: proportion}
-forwarded_repos = get_forwarded_repos(os.getenv("LABEL_BOT_CONFIG",
-                                                "forwarded_repo.yaml"))
+# forwarded_repos = get_forwarded_repos(os.getenv("LABEL_BOT_CONFIG",
+#                                                "forwarded_repo.yaml"))
 
 def init_issue_labeler():
     "Load all necessary artifacts to make predictions."
@@ -70,7 +70,7 @@ def init_issue_labeler():
     model_path = get_file(fname=model_filename, origin=model_url)
     model = load_model(model_path)
 
-    logging.info(f"Forwarded repo config:\n{forwarded_repos}")
+    # logging.info(f"Forwarded repo config:\n{forwarded_repos}")
     return IssueLabeler(body_text_preprocessor=body_pp,
                         title_text_preprocessor=title_pp,
                         model=model)
@@ -78,10 +78,10 @@ def init_issue_labeler():
 def init():
     "Load all necessary artifacts to make predictions."
     logging.info(f"Initializing the app")
-    logging.info(f"Forwarded repo config:\n{forwarded_repos}")
-    app.graph = tf.get_default_graph()
-    app.issue_labeler = init_issue_labeler()
-    create_topic_if_not_exists(PUBSUB_PROJECT_ID, PUBSUB_TOPIC_NAME)
+    # logging.info(f"Forwarded repo config:\n{forwarded_repos}")
+    # app.graph = tf.get_default_graph()
+    # app.issue_labeler = init_issue_labeler()
+    # create_topic_if_not_exists(PUBSUB_PROJECT_ID, PUBSUB_TOPIC_NAME)
 
 # this redirects http to https
 # from https://stackoverflow.com/a/53501072/1518630
@@ -93,18 +93,6 @@ def init():
 #         return redirect(url, code=code)
 
 # Webpage for app
-@app.route("/", methods=["GET"])
-def index():
-    "Landing page"
-    results = db.engine.execute("SELECT * FROM (SELECT distinct repo, username FROM issues a JOIN predictions b on a.issue_id=b.issue_id WHERE username != 'hamelsmu' LIMIT 200) as t ORDER BY random() LIMIT 25").fetchall()
-    num_active_users = f'{db.engine.execute("SELECT count(distinct username) FROM issues").fetchall()[0][0]:,}'
-    num_predictions = f'{db.engine.execute("SELECT count(*) FROM predictions").fetchall()[0][0]:,}'
-    num_repos = f'{db.engine.execute("select count(*) from (select distinct username, repo from issues) as t").fetchall()[0][0]:,}'
-    return render_template("index.html",
-                           results=results,
-                           num_active_users=num_active_users,
-                           num_repos=num_repos,
-                           num_predictions=num_predictions)
 
 # smee by default sends things to /event_handler route
 @app.route("/event_handler", methods=["POST"])
@@ -120,7 +108,7 @@ def bot():
     logging.debug("Handling request with action: %s",
                   request.json.get('action', 'None'))
     # authenticate webhook to make sure it is from GitHub
-    verify_webhook(request)
+    # verify_webhook(request)
 
     # Check if payload corresponds to an issue being opened
     if 'issue' not in request.json:
@@ -141,91 +129,25 @@ def bot():
         return 'ok'
 
     logging.info(f"Recieved {username}/{repo}#{issue_num}")
-    try:
-        # forward some issues of specific repos and select by their given forwarded proportion
-        # TODO(jlewi): We could probably simplify this because at this point
-        # for any repo/org that we are forwarding the issues we should probably
-        # always forward the issues.
-        forward_probability = None
-        repo_spec = f'{username}/{repo}'
-        if username in forwarded_repos.get("orgs", {}):
-            forward_probability = forwarded_repos["orgs"][username]
-        elif repo_spec in forwarded_repos.get("repos", {}):
-            forward_probability = forwarded_repos["repos"][repo_spec]
-
-        if forward_probability:
-            if random.random() <= forward_probability:
-                logging.info(f"Publishing {username}/{repo}#{issue_num} to "
-                             f"projects/{PUBSUB_PROJECT_ID}/topics/{PUBSUB_TOPIC_NAME}")
-                # send the event to pubsub
-                publish_message(PUBSUB_PROJECT_ID, PUBSUB_TOPIC_NAME,
-                                installation_id, username, repo, issue_num)
-                return f'Labeling of {username}/{repo}/issues/{issue_num} delegated to microservice via pubsub.'
-            else:
-                logging.info(f"{username}/{repo}#{issue_num} not selected for "
-                             f"publishing to "
-                             f"projects/{PUBSUB_PROJECT_ID}/topics/{PUBSUB_TOPIC_NAME}")
-    except Exception as e:
-        logging.error(f"Exception occured while handling issue "
-                      f"{username}/{repo}#{issue_num}\n Exception: {e}\n"
-                      f"{traceback.format_exc()}")
+    
 
     # Check if payload corresponds to an issue being opened
     if 'action' not in request.json or request.json['action'] != 'opened':
         logging.warning("Event is not for an issue with action opened.")
         return 'ok'
-
-    # write the issue to the database using ORM
-    issue_db_obj = Issues(repo=repo,
-                          username=username,
-                          issue_num=issue_num,
-                          title=title,
-                          body=body)
-
-    db.session.add(issue_db_obj)
-    db.session.commit()
-
-    # make predictions with the model
-    with app.graph.as_default():
-        predictions = app.issue_labeler.get_probabilities(body=body, title=title)
-    #log to console
-    LOG.warning(f'issue opened by {username} in {repo} #{issue_num}: {title} \nbody:\n {body}\n')
-    LOG.warning(f'predictions: {str(predictions)}')
-
-    # get the most confident prediction
-    argmax = max(predictions, key=predictions.get)
-
-    # get the isssue handle
     issue = get_issue_handle(installation_id, username, repo, issue_num)
 
+    # make predictions with the model
+    # with app.graph.as_default():
+    #    predictions = app.issue_labeler.get_probabilities(body=body, title=title)
+    #log to console
+    # LOG.warning(f'issue opened by {username} in {repo} #{issue_num}: {title} \nbody:\n {body}\n')
+    # LOG.warning(f'predictions: {str(predictions)}')
 
-    labeled = True
-    threshold = prediction_threshold[argmax]
+    # get the most confident prediction
 
-    # take an action if the prediction is confident enough
-    if (predictions[argmax] >= threshold):
-        # initialize the label name to = the argmax
-        label_name = argmax
-
-        # handle the yaml file
-        yaml = get_yaml(owner=username, repo=repo)
-        if yaml and 'label-alias' in yaml:
-            if  argmax in yaml['label-alias']:
-                LOG.warning('User has custom names: ', yaml['label-alias'])
-                new_name = yaml['label-alias'][argmax]
-                if new_name:
-                    label_name = new_name
-
-        # create message
-        message = f'Issue-Label Bot is automatically applying the label `{label_name}` to this issue, with a confidence of {predictions[argmax]:.2f}. Please mark this comment with :thumbsup: or :thumbsdown: to give our bot feedback! \n\n Links: [app homepage](https://github.com/marketplace/issue-label-bot), [dashboard]({app_url}data/{username}/{repo}) and [code](https://github.com/hamelsmu/MLapp) for this bot.'
-        # label the issue using the GitHub api
-        issue.add_labels(label_name)
-
-    else:
-        message = f'Issue Label Bot is not confident enough to auto-label this issue. See [dashboard]({app_url}data/{username}/{repo}) for more details.'
-        LOG.warning(f'Not confident enough to label this issue: # {str(issue_num)}')
-        labeled = False
-
+    issue.add_labels("test-label")
+    message = "testing working"
     # Make a comment using the GitHub api
     comment = issue.create_comment(message)
 
@@ -359,10 +281,10 @@ def update_feedback(owner, repo):
 
 def get_app():
     "grab a fresh instance of the app handle."
-    app_id = os.getenv('APP_ID')
+    app_id = 74516
     if not app_id:
         raise ValueError("APP_ID environment variable must be set.")
-    key_file_path = os.getenv("GITHUB_APP_PEM_KEY")
+    key_file_path = "issue-insights.2020-07-27.private-key.pem"
     if not key_file_path:
         raise ValueError("GITHUB_APP_PEM_KEY environment variable must be set.")
     ghapp = GitHubApp(pem_path=key_file_path, app_id=app_id)
@@ -441,11 +363,11 @@ if __name__ == "__main__":
     logger.setLevel(logging.INFO)
 
     init()
-    with app.app_context():
+    #with app.app_context():
         # create tables if they do not exist
-        db.create_all()
+        # db.create_all()
 
     # make sure things reload
     app.jinja_env.auto_reload = True
     app.config['TEMPLATES_AUTO_RELOAD'] = True
-    app.run(debug=True, host='0.0.0.0', port=os.getenv('PORT'))
+    app.run(debug=True, host='127.0.0.1', port=3000)
