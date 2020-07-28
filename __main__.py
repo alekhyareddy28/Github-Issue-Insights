@@ -9,6 +9,7 @@ from gidgethub.aiohttp import GitHubAPI
 from flask import (abort, Flask, session, render_template,
                    session, redirect, url_for, request,
                    flash, jsonify)
+from mlapp import GitHubApp
 
 app = Flask(__name__)
 
@@ -60,39 +61,46 @@ def bot():
     if private:
         logging.info(f"Recieved a private issue which is being skipped")
         return 'ok'
-    asyncio.run(postIssue())
     logging.info(f"Recieved {username}/{repo}#{issue_num}")
+    
+    # Check if payload corresponds to an issue being opened
+    if 'action' not in request.json or request.json['action'] != 'opened':
+        logging.warning("Event is not for an issue with action opened.")
+        return 'ok'
+    issue = get_issue_handle(installation_id, username, repo, issue_num)
+
+
+    # make predictions with the model
+    # with app.graph.as_default():
+    #    predictions = app.issue_labeler.get_probabilities(body=body, title=title)
+    #log to console
+    # LOG.warning(f'issue opened by {username} in {repo} #{issue_num}: {title} \nbody:\n {body}\n')
+    # LOG.warning(f'predictions: {str(predictions)}')
+
+    # get the most confident prediction
+    issue.add_labels("test-label")
+    message = "testing working"
+    # Make a comment using the GitHub api
+    comment = issue.create_comment(message)
+
     return 'ok'
 
-async def postIssue():
-    async with aiohttp.ClientSession() as session:
-        app_id = os.getenv("GH_APP_ID")
+def get_app():
+    "grab a fresh instance of the app handle."
+    app_id = os.getenv("GH_APP_ID")
+    if not app_id:
+        raise ValueError("APP_ID environment variable must be set.")
+    key_file_path = os.getenv("PEM_FILE_PATH")
+    if not key_file_path:
+        raise ValueError("GITHUB_APP_PEM_KEY environment variable must be set.")
+    ghapp = GitHubApp(pem_path=key_file_path, app_id=app_id)
+    return ghapp
 
-        jwt = get_jwt(app_id)
-        gh = GitHubAPI(session, "chithams")
-
-        try:
-            installation = await get_installation(gh, jwt, "chithams")
-
-        except ValueError as ve:
-            # Raised if Mariatta did not installed the GitHub App
-            print(ve)
-        else:
-            access_token = await get_installation_access_token(
-                gh, jwt=jwt, installation_id=installation["id"]
-            )
-
-            # treat access_token as if a personal access token
-
-            # Example, creating a GitHub issue as a GitHub App
-            gh_app = GitHubAPI(session, "black_out", oauth_token=access_token["token"])
-            await gh_app.post(
-                "/repos/chithams/dummyrepo/issues",
-                data={
-                    "title": "We got a problem 🤖",
-                    "body": "Use more emoji! (I'm a GitHub App!) ",
-                },
-            )
+def get_issue_handle(installation_id, username, repository, number):
+    "get an issue object."
+    ghapp = get_app()
+    install = ghapp.get_installation(installation_id)
+    return install.issue(username, repository, number)
 
 async def get_installation(gh, jwt, username):
     async for installation in gh.getiter(
@@ -125,14 +133,16 @@ async def get_installation_access_token(gh, jwt, installation_id):
     # }
 
     return response
-SIGNATURE_HEADER = 'X-Hub-Signature'
+
+
+
 def verify_webhook(request):
     "Make sure request is from GitHub.com"
-
+    
     webhook_secret = os.getenv('WEBHOOK_SECRET')
     # if we are testing, don't bother checking the payload
     if os.getenv('DEVELOPMENT_FLAG'): return True
-
+    SIGNATURE_HEADER = 'X-Hub-Signature'
     # Inspired by https://github.com/bradshjg/flask-githubapp/blob/master/flask_githubapp/core.py#L191-L198
     if SIGNATURE_HEADER not in request.headers:
         logging.error("Request is missing header %s", SIGNATURE_HEADER)
