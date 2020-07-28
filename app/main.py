@@ -12,9 +12,9 @@ from mlapp import GitHubApp
 
 app = Flask(__name__)
 
-path_to_private_key = "issue-insights.2020-07-27.private-key.pem"
-app_id=74516
-webhook_secret="TestGithubInsights20Van"
+path_to_private_key=os.getenv('PEM_FILE_PATH', "issue-insights.2020-07-27.private-key.pem")
+app_id=os.getenv('GH_APP_ID', 74516)
+webhook_secret=os.getenv('WEBHOOK_SECRET', "TestGithubInsights20Van")
 
 def get_jwt(app_id):
 
