@@ -77,6 +77,8 @@ def bot():
         return 'ok'
     issue = get_issue_handle(installation_id, username, repo, issue_num)
 
+    pull_requests = get_pull_requests(installation_id, username, repo)
+
 
     # make predictions with the model
     # with app.graph.as_default():
@@ -85,13 +87,59 @@ def bot():
     # LOG.warning(f'issue opened by {username} in {repo} #{issue_num}: {title} \nbody:\n {body}\n')
     # LOG.warning(f'predictions: {str(predictions)}')
 
+    message = get_display_message(pull_requests)
+
     # get the most confident prediction
     issue.add_labels("test-label")
-    message = str(labels_list)
+    # message = str(labels_list)
     # Make a comment using the GitHub api
     comment = issue.create_comment(message)
 
     return 'ok'
+
+def get_display_message(pull_requests):
+    msg = ""
+    msg += get_pr_display_message(pull_requests)
+    msg += "\n\n\n"
+    msg += get_important_files_display_msg(pull_requests)
+    msg += "\n\n\n"
+    msg += get_pr_authors_display_message(pull_requests)
+
+    return msg
+
+def get_pr_display_message(pull_requests):
+    msg = "These are some of the Pull Requests which addressed similar issues: \n"
+
+    for pr in pull_requests:
+        msg += "* ["+ pr.title +"]("+pr.html_url+") \n"
+    return msg
+
+def get_important_files_display_msg(pull_requests):
+    msg = "These are some files that you might want to take a look at to address this issue: \n"
+
+    file_dict = {}
+    for pr in pull_requests:
+        for f in pr.files():
+            file_dict[f.filename]=file_dict.get(f.filename, 0)+f.additions_count
+
+    sorted_files = sorted(file_dict.items(), key=lambda x: x[1], reverse=True)
+
+    for f in sorted_files:
+        msg += "* filename: "+ f[0] + ", additions count: " + str(f[1])+"\n"
+    return msg
+
+def get_pr_authors_display_message(pull_requests):
+    msg = "These are the authors who contributed to fixing similar issues: \n"
+
+    authors = []
+    for pr in pull_requests:
+        authors.append(pr.user.login)
+
+    unique_authors = set(authors)    
+        
+    for author in unique_authors:
+        msg += "* ["+ author +"](https://github.com/"+ author +") \n"
+    return msg
 
 def get_app():
     "grab a fresh instance of the app handle."
@@ -109,6 +157,25 @@ def get_issue_handle(installation_id, username, repository, number):
     ghapp = get_app()
     install = ghapp.get_installation(installation_id)
     return install.issue(username, repository, number)
+
+def get_pull_requests(installation_id, username, repository):
+    "get an issue object."
+    ghapp = get_app()
+    install = ghapp.get_installation(installation_id)
+    pull_requests = install.repository(username, repository).pull_requests()
+    # for pr in  pull_requests:
+        # logging.warning(f"Pull Request #{pr.number} Info:")
+        # logging.warning("Title:" + pr.title)
+        # logging.warning("Author: " + pr.user.login)
+        # logging.warning("Url: " + pr.url)
+        # logging.warning("Issue url:" + pr.issue_url)
+        # files = pr.files()
+
+        #maybe process the files to sort by add count and only output first 3?
+    #for f in files:
+    #   logging.warning("PR has changes in file: " + f.filename)
+
+    return pull_requests
 
 async def get_installation(gh, jwt, username):
     async for installation in gh.getiter(
