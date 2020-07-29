@@ -83,8 +83,22 @@ def bot():
     comment = issue.create_comment(message)
 
     pull_requests = get_pull_requests(installation_id, username, repo)
-
+    get_files(pull_requests, installation_id, username, repo)
     return 'ok'
+
+def get_files(pull_requests, installation_id, username, repository):
+    files = [f.filename for pr in pull_requests for f in pr.files()]
+    ghapp = get_app()
+    repo_client = ghapp.get_installation(installation_id).repository(username, repository)
+    filtered_files = set()
+    for f in files:
+        try:
+            c = repo_client.file_contents("/"+f)
+            filtered_files.add(c.path)
+        except:
+            logging.warning("File not found:" + f + " does not exist on master.")
+    print(filtered_files)
+    return filtered_files
 
 def get_app():
     "grab a fresh instance of the app handle."
@@ -103,24 +117,11 @@ def get_issue_handle(installation_id, username, repository, number):
     install = ghapp.get_installation(installation_id)
     return install.issue(username, repository, number)
 
-    
 def get_pull_requests(installation_id, username, repository):
     "get an issue object."
     ghapp = get_app()
     install = ghapp.get_installation(installation_id)
     pull_requests = install.repository(username, repository).pull_requests()
-    for pr in  pull_requests:
-        logging.warning(f"Pull Request #{pr.number} Info:")
-        logging.warning("Title:" + pr.title)
-        logging.warning("Author: " + pr.user.login)
-        logging.warning("Url: " + pr.url)
-        logging.warning("Issue url:" + pr.issue_url)
-        files = pr.files()
-        
-        #maybe process the files to sort by add count and only output first 3?
-        for f in files:
-            logging.warning("PR has changes in file: " + f.filename)
-           
     return pull_requests
 
 async def get_installation(gh, jwt, username):
@@ -133,7 +134,6 @@ async def get_installation(gh, jwt, username):
             return installation
 
     raise ValueError(f"Can't find installation by that user: {username}")
-
 
 async def get_installation_access_token(gh, jwt, installation_id):
     # doc: https: // developer.github.com/v3/apps/#create-a-new-installation-token
@@ -154,8 +154,6 @@ async def get_installation_access_token(gh, jwt, installation_id):
     # }
 
     return response
-
-
 
 def verify_webhook(request):
     "Make sure request is from GitHub.com"
@@ -181,6 +179,3 @@ if __name__ == "__main__":
     app.jinja_env.auto_reload = True
     app.config['TEMPLATES_AUTO_RELOAD'] = True
     app.run(debug=True, host='127.0.0.1', port=3000)
-
-
-
