@@ -83,10 +83,10 @@ def bot():
     comment = issue.create_comment(message)
 
     pull_requests = get_pull_requests(installation_id, username, repo)
-    get_files(pull_requests, installation_id, username, repo)
+    get_files_on_master(pull_requests, installation_id, username, repo)
     return 'ok'
 
-def get_files(pull_requests, installation_id, username, repository):
+def get_files_on_master(pull_requests, installation_id, username, repository):
     files = [f.filename for pr in pull_requests for f in pr.files()]
     ghapp = get_app()
     repo_client = ghapp.get_installation(installation_id).repository(username, repository)
