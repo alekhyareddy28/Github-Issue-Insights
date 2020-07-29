@@ -3,6 +3,8 @@ import gzip
 import os
 import json
 import sys
+#run from root folder
+#usage: python getData.py <archive_timestamp>
 if not os.path.exists('Datasets'):
     os.makedirs('Datasets')
 timestamp = sys.argv[1]
