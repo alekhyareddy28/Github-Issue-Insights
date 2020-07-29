@@ -95,6 +95,8 @@ def bot():
     # Make a comment using the GitHub api
     comment = issue.create_comment(message)
 
+    pull_requests = get_pull_requests(installation_id, username, repo)
+
     return 'ok'
 
 def get_display_message(pull_requests):
