@@ -9,11 +9,12 @@ from flask import (abort, Flask, session, render_template,
                    session, redirect, url_for, request,
                    flash, jsonify)
 from mlapp import GitHubApp
+from model_inference import get_recommended_pull_requests
 
 app = Flask(__name__)
 
-path_to_private_key=os.getenv('PEM_FILE_PATH', "issue-insights.2020-07-27.private-key.pem")
-app_id=os.getenv('GH_APP_ID', 74516)
+path_to_private_key=os.getenv('PEM_FILE_PATH', "hackathonissuebot.2020-07-29.private-key.pem")
+app_id=os.getenv('GH_APP_ID', 74900)
 webhook_secret=os.getenv('WEBHOOK_SECRET', "TestGithubInsights20Van")
 
 def get_jwt(app_id):
@@ -76,18 +77,16 @@ def bot():
         logging.warning("Event is not for an issue with action opened.")
         return 'ok'
     issue = get_issue_handle(installation_id, username, repo, issue_num)
-
     pull_requests = get_pull_requests(installation_id, username, repo)
 
-
     # make predictions with the model
-    # with app.graph.as_default():
-    #    predictions = app.issue_labeler.get_probabilities(body=body, title=title)
+    recommended_pull_requests = get_recommended_pull_requests([title, body, " ".join(labels)], pull_requests)
+
     #log to console
     # LOG.warning(f'issue opened by {username} in {repo} #{issue_num}: {title} \nbody:\n {body}\n')
     # LOG.warning(f'predictions: {str(predictions)}')
 
-    message = get_display_message(pull_requests, installation_id, username, repo)
+    message = get_display_message(recommended_pull_requests, installation_id, username, repo)
 
     # get the most confident prediction
     issue.add_labels("test-label")
