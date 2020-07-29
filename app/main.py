@@ -108,44 +108,52 @@ def get_display_message(pull_requests, installation_id, username, repo):
     return msg
 
 def get_pr_display_message(pull_requests):
-    msg = "These are some of the Pull Requests which addressed similar issues: \n"
+    formatted_prs = [get_formatted_pr(pr) for pr in pull_requests]
+    return "These are some of the Pull Requests which addressed similar issues: \n" + ''.join(formatted_prs)
 
-    for pr in pull_requests:
-        msg += "* ["+ pr.title +"]("+pr.html_url+") \n"
-    return msg
+def get_formatted_pr(pr):
+    return "* ["+ pr.title +"]("+pr.html_url+") \n"
 
 def get_important_files_display_msg(pull_requests, installation_id, username, repository):
     msg = "These are some files that you might want to take a look at to address this issue: \n"
-
-    file_dict = {}
-    for pr in pull_requests:
-        for f in pr.files():
-            file_dict[f.filename]=file_dict.get(f.filename, 0)+f.additions_count
-
-    sorted_files = sorted(file_dict.items(), key=lambda x: x[1], reverse=True)
+    sorted_files = get_sorted_files(pull_requests)
+    
     ghapp = get_app()
     repo_client = ghapp.get_installation(installation_id).repository(username, repository)
-    
+
+    file_count = 0
+    max_file_count = 5
+
     for f in sorted_files:
         try:
             c = repo_client.file_contents(f[0])
-            msg += "* filename: "+ f[0] + ", additions count: " + str(f[1])+"\n"
-        except:
+            msg += get_formatted_file(f[0], username, repository)
+            file_count += 1
+            if file_count >= max_file_count:
+                 break
+        except Exception as e:
+            logging.warning(e)
             logging.warning("File not found:" + f[0] + " does not exist on master.")
     return msg
 
-def get_pr_authors_display_message(pull_requests):
-    msg = "These are the authors who contributed to fixing similar issues: \n"
+def get_formatted_file(file, repo_owner, repo):
+    return "* ["+ file +"](https://github.com/"+ repo_owner +"/"+ repo +"/tree/master/"+ file +") \n"
 
-    authors = []
+def get_sorted_files(pull_requests):
+    file_dict = {}
     for pr in pull_requests:
-        authors.append(pr.user.login)
+        for f in pr.files():
+            file_dict[f.filename] = file_dict.get(f.filename, 0) + (f.additions_count * (f.additions_count / max(f.deletions_count, 1)))
 
-    unique_authors = set(authors)    
-        
-    for author in unique_authors:
-        msg += "* ["+ author +"](https://github.com/"+ author +") \n"
-    return msg
+    return sorted(file_dict.items(), key=lambda x: x[1], reverse=True)
+
+def get_pr_authors_display_message(pull_requests):
+    authors = {pr.user.login for pr in pull_requests}
+    formatted_authors = [get_formatted_author(a) for a in authors]
+    return "These are the authors who contributed to fixing similar issues: \n" + ''.join(formatted_authors)
+
+def get_formatted_author(author):
+    return "* ["+ author +"](https://github.com/"+ author +") \n"
 
 def get_app():
     "grab a fresh instance of the app handle."
