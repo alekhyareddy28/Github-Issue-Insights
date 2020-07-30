@@ -1,7 +1,7 @@
 '''
 MIT License
 
-Copyright (c) 2019 GitHub, 2020 {Alekhya Reddy, Arjun Balgovind, Raghavan Sundararaman, Ranjini Chidambaram}
+Copyright (c) 2019 GitHub, 2020 {Alekhya Reddy, Arjun Balgovind, Raghavan Sundararaman, Ranjini Chithambaram}
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
