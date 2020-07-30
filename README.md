@@ -16,6 +16,26 @@ Once we have this info, we post an issue comment through an API call.
 ### How to run this?
 More info about running the app can be found in [/app](https://github.com/alekhyareddy28/Github-Issue-Insights/tree/master/app)
 
+### Dependencies
+- Apart from python3 the following python libraries need to be installed. This can be done using `pip install lib-name`.
+    - aiohttp
+    - jwt
+    - gidgethub
+    - flask
+    - github3.py
+    - tqdm
+    - numpy
+    - scipy
+    - pandas
+    - scikit-learn
+    - gensim
+    - nltk
+- After installing nltk run the following commands on a terminal
+
+      python
+      nltk.download('stopwords')
+      nltk.download('punkt')
+
 ### References
 We drew inspirations from [Issue label bot](https://github.com/machine-learning-apps/Issue-Label-Bot) and [Gh_app_demo](https://github.com/Mariatta/gh_app_demo).
-The learning model used the [word2vec model](https://github.com/alexandres/lexvec) for feature extraction from text.
+The learning model used [this word2vec model](https://github.com/alexandres/lexvec) for textual feature extraction.
