@@ -1,4 +1,4 @@
-# Github-Issue-Insights
+# GitHub Issue Insights
 
 ### MSVan Hackathon 2020 Project
 This repo contains code that was developed during Micrsoft's Hackathon July 27-29 2020.
