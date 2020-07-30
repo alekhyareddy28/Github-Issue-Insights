@@ -15,3 +15,7 @@ Once we have this info, we post an issue comment through an API call.
 
 ### How to run this?
 More info about running the app can be found in [/app](https://github.com/alekhyareddy28/Github-Issue-Insights/tree/master/app)
+
+### References
+We drew inspirations from [Issue label bot](https://github.com/machine-learning-apps/Issue-Label-Bot) and [Gh_app_demo](https://github.com/Mariatta/gh_app_demo).
+The learning model was based on the [word2vec model](https://github.com/alexandres/lexvec)
