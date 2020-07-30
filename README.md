@@ -3,7 +3,7 @@
 ### MSVan Hackathon 2020 Project
 This repo contains code that was developed during Micrsoft's Hackathon July 27-29 2020.
 
-#### [Link to product demo video](https://microsoft-my.sharepoint.com/:v:/p/sichitha/EXAGYzegCN9Npw-gIdrpjp0Bq7DdG7a_Dk8fbGmwE-l4cw?e=yum2zV)
+### [Link to product demo video](https://microsoft-my.sharepoint.com/:v:/p/sichitha/EXAGYzegCN9Npw-gIdrpjp0Bq7DdG7a_Dk8fbGmwE-l4cw?e=yum2zV)
 
 ### What does it do?
 Issue Insights is a GitHub app that once installed on a repo, analyzes the code base and helps you find relevant info related to a new GitHub issue.
