@@ -175,7 +175,7 @@ def get_pull_requests(installation_id, username, repository):
     "get an issue object."
     ghapp = get_app()
     install = ghapp.get_installation(installation_id)
-    pull_requests = install.repository(username, repository).pull_requests()
+    pull_requests = install.repository(username, repository).pull_requests(state='all')
     return pull_requests
 
 async def get_installation(gh, jwt, username):
