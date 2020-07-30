@@ -18,4 +18,4 @@ More info about running the app can be found in [/app](https://github.com/alekhy
 
 ### References
 We drew inspirations from [Issue label bot](https://github.com/machine-learning-apps/Issue-Label-Bot) and [Gh_app_demo](https://github.com/Mariatta/gh_app_demo).
-The learning model was based on the [word2vec model](https://github.com/alexandres/lexvec)
+The learning model used the [word2vec model](https://github.com/alexandres/lexvec) for feature extraction from text.
