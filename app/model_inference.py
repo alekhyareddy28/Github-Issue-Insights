@@ -88,7 +88,7 @@ def get_recommended_pull_requests(issue_data, pr_data):
         return pr_data
 
     # Make prediction
-    y_pred = get_top_k_predictions(input_feature_extraction(X_issue_title_wordvec, X_issue_description_wordvec, X_issue_label_wordvec), output_feature_extraction(Y_pr_title_wordvec, Y_pr_description_wordvec), classifier, 5)
+    y_pred = get_top_k_predictions(input_feature_extraction(X_issue_title_wordvec, X_issue_description_wordvec, X_issue_label_wordvec), output_feature_extraction(Y_pr_title_wordvec, Y_pr_description_wordvec), classifier, 3)
 
     # Return subset of PRs
     pr_list = [pr for pr in pr_data]

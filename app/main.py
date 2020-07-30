@@ -80,7 +80,7 @@ def bot():
     pull_requests = get_pull_requests(installation_id, username, repo)
 
     # make predictions with the model
-    recommended_pull_requests = get_recommended_pull_requests([title, body, " ".join(labels)], pull_requests)
+    recommended_pull_requests = get_recommended_pull_requests([title, body, ", ".join([l['name'] for l in labels])], pull_requests)
 
     #log to console
     # LOG.warning(f'issue opened by {username} in {repo} #{issue_num}: {title} \nbody:\n {body}\n')
